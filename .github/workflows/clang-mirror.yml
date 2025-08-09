@@ -1,4 +1,4 @@
-name: Release Clang Artifact
+name: Mirror Clang
 
 on:
   workflow_dispatch:
