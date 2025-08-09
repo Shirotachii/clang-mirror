@@ -1,0 +1,51 @@
+name: Release Clang Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      clang_url:
+        description: 'URL to clang-r563880b.tar.gz'
+        required: true
+        default: 'https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/67af9f576276f27363074c4388e2cf0963bab6df/clang-r563880b.tar.gz'
+      release_tag:
+        description: 'Release Tag'
+        required: true
+        default: 'clang-r563880b'
+
+jobs:
+  release-clang:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Clang tarball
+        run: |
+          curl -L "${{ github.event.inputs.clang_url }}" -o clang.tar.gz
+
+      - name: Check downloaded file
+        run: |
+          ls -lh clang.tar.gz
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          echo "Downloaded from: ${{ github.event.inputs.clang_url }}" > release-notes.txt
+          echo "SHA256: $(sha256sum clang.tar.gz | cut -d' ' -f1)" >> release-notes.txt
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag }}
+          name: ${{ github.event.inputs.release_tag }}
+          body_path: release-notes.txt
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifact to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag }}
+          files: clang.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
