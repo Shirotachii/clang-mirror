@@ -1,6 +1,3 @@
-permissions:
-  contents: write
-  
 name: Mirror Clang
 
 on:
@@ -15,6 +12,9 @@ on:
         required: true
         default: 'clang-r563880b'
 
+permissions:
+  contents: write
+  
 jobs:
   release-clang:
     runs-on: ubuntu-latest
