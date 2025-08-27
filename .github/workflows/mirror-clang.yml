@@ -4,31 +4,36 @@ on:
   workflow_dispatch:
     inputs:
       clang_url:
-        description: 'URL to clang tarball (.tar.gz)'
+        description: 'URL to clang tarball'
         required: true
-        default: 'https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/67af9f576276f27363074c4388e2cf0963bab6df/clang-r563880c.tar.gz'
+        default: 'https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/67af9f576276f27363074c4388e2cf0963bab6df/clang-r563880b.tar.gz'
       release_tag:
-        description: 'Release Tag (e.g. clang-r563880c)'
+        description: 'Release Tag'
         required: true
-        default: 'clang-r563880c'
+        default: 'clang-r563880b'
 
 permissions:
   contents: write
 
 jobs:
-  mirror-clang:
+  release-clang:
     runs-on: ubuntu-latest
     steps:
       - name: Download Clang tarball
         run: |
           curl -L "${{ github.event.inputs.clang_url }}" -o clang.tar.gz
 
+      - name: Check downloaded file
+        run: |
+          ls -lh clang.tar.gz
+
       - name: Generate release notes
+        id: notes
         run: |
           echo "Downloaded from: ${{ github.event.inputs.clang_url }}" > release-notes.txt
           echo "SHA256: $(sha256sum clang.tar.gz | cut -d' ' -f1)" >> release-notes.txt
 
-      - name: Check if release exists
+      - name: Check if release already exists
         id: check_release
         run: |
           TAG="${{ github.event.inputs.release_tag }}"
@@ -37,14 +42,6 @@ jobs:
             https://api.github.com/repos/${{ github.repository }}/releases/tags/$TAG)
           echo "status=$STATUS" >> $GITHUB_OUTPUT
 
-      - name: Create tag if missing
-        if: steps.check_release.outputs.status != '200'
-        run: |
-          git config --global user.name "github-actions"
-          git config --global user.email "github-actions@users.noreply.github.com"
-          git tag ${{ github.event.inputs.release_tag }}
-          git push origin ${{ github.event.inputs.release_tag }}
-
       - name: Create GitHub Release
         if: steps.check_release.outputs.status != '200'
         uses: softprops/action-gh-release@v2
@@ -52,13 +49,20 @@ jobs:
           tag_name: ${{ github.event.inputs.release_tag }}
           name: ${{ github.event.inputs.release_tag }}
           body_path: release-notes.txt
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload tarball to Release
+      - name: Upload Artifact to Release
+        if: steps.check_release.outputs.status != '200'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.release_tag }}
           files: clang.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip release (already exists)
+        if: steps.check_release.outputs.status == '200'
+        run: echo "Release with tag '${{ github.event.inputs.release_tag }}' already exists. Skipping."
